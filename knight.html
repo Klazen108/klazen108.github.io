@@ -1,0 +1,214 @@
+<html>
+<head>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/p5.js"></script>
+<script type="text/javascript>
+
+//configurable variables (touch these)
+//the number of rings to display
+const ringcount = 30;
+//the size of each cell
+const cellsize=12;
+//whether to draw the values or not
+const displayVals=false;
+//period of blinking final cell in ms
+const blinkPeriod=1000;
+//whether to calculate the end result ahead of time
+const justDoItAlready = false;
+
+//max iterations to perform (if not in perstep mode)
+const maxiter = 2500;
+//number of checks to perform per step
+const perstep = 10;
+//starting location
+let c={x:0,y:0};
+
+//non-configurable variables (don't touch these)
+//the size of the canvas
+const size = ringcount*cellsize*2;
+//the list of visited values
+const visited = [];
+//the last value we touched at the end of checking
+let final = -1
+//if we're done checking (trapped knight condition)
+let done = false;
+//the center position of the canvas
+const center = size/2;
+//controls blink of the final cell
+let blink = false;
+
+let lastTime = new Date().getTime()
+
+function setup() {
+	createCanvas(size, size);
+	
+	push(visited,c)
+	print('hello');
+	
+	if (justDoItAlready) {
+		for (i=0;i<maxiter/perstep;i++) {
+			step();
+		}
+	}
+}
+
+function step() {
+	if (done) return;
+	for (i=0;i<perstep;i++) {
+		//set up elements in a knight pattern
+	  a0={x:c.x-1,y:c.y-2};
+	  a1={x:c.x+1,y:c.y-2};
+		
+	  a2={x:c.x-2,y:c.y-1};
+	  a3={x:c.x-2,y:c.y+1};
+		
+	  a4={x:c.x+2,y:c.y-1};
+	  a5={x:c.x+2,y:c.y+1};
+		
+	  a6={x:c.x-1,y:c.y+2};
+	  a7={x:c.x+1,y:c.y+2};
+		
+		//only consider elements not visited
+		let next1 = [a0,a1,a2,a3,a4,a5,a6,a7];
+		let next2 = [];
+		for (j=0;j<8;j++) {
+			let cv = Va(next1[j]);
+			if (!visited.includes(cv)) {
+				next2.push(next1[j]);
+			}
+		}
+		if (next2.length == 0) {
+		  print('nowhere else to go!');
+		}
+		
+		//find the element with the minimum value
+		let best = -1;
+		let bestVal = 9999999;
+		for (j=0;j<next2.length;j++) {
+			if (Va(next2[j])<bestVal) {
+				best = j;
+				bestVal = Va(next2[j]);
+			}
+		}
+		final = Va(c);
+		if (best == -1) {
+			print('stuck on i: '+i);
+			print('value is: '+Va(c));
+			print('coords are: '+c);
+			done = true;
+			lastTime = new Date().getTime();
+			break;
+		}
+		c = next2[best];
+		visited.push(final);
+		//print(Va(c));
+	}
+	print(`now at: ${final} (${c.x},${c.y})`);
+}
+
+function draw() {
+	step();
+	if (done && new Date().getTime() > lastTime+blinkPeriod/2) {
+		blink = !blink;
+		lastTime+=blinkPeriod/2;
+	}
+	background(220);
+
+	textAlign(CENTER);
+
+	let x0 = center;
+	let y0 = center;
+
+	let o = cellsize;
+
+	for (xx = -(ringcount-1); xx <= ringcount-1; xx++) {
+		for (yy = -(ringcount-1); yy <= ringcount-1; yy++) {
+			let cv = Vxy(yy, xx);
+			
+	    colorMode(HSB, 255);
+			
+			if (final==Vxy(yy,xx)) {
+				if (blink) fill(color(0,255,255));
+				else fill(color(0,255,0));
+			} else if (visited.includes(cv)) {
+				let norm = visited.indexOf(cv)/visited.length;
+				fill(color(190-norm*190,255,255));
+			}
+			else fill(color(0,0,255));
+			
+			rect(x0 + xx * o-cellsize/2, 
+					 y0 - yy * o-cellsize/2, 
+					 cellsize, cellsize);
+			fill(color(0,0,0));
+			if (displayVals) {
+				text(cv, x0 + xx * o, y0 - yy * o+cellsize/4);
+			}
+		}
+	}
+}
+
+//the value in the cell at (x,y)
+function Vxy(x,y) {
+	let Rv = R(x, y);
+	let Iv = I(x, y);
+	return V(Rv, Iv)
+}
+
+//the value in the cell at (a.x,a.y)
+function Va(a) {
+	let Rv = R(a.x, a.y);
+	let Iv = I(a.x, a.y);
+	let v = V(Rv, Iv);
+	return v;
+}
+
+//the ring that cell (x,y) is in
+function R(x, y) {
+	return max(abs(x), abs(y));
+}
+
+//the ring index that cell (x,y) is in
+function I(x, y) {
+	if (abs(x) == abs(y)) {
+		if (x < 0) {
+			if (y < 0) {
+				return -6 * x - 1;
+			} else {//(y > 0) {
+				return -8 * x - 1;
+			}
+		} else {
+			if (y < 0) {
+				return 4 * x - 1
+			} else { //if (y > 0) {
+				return 2 * x - 1;
+			}
+		}
+	} else {
+		if (y > abs(x)) {
+			return y + x - 1;
+		} else if (x > abs(y)) {
+			return 3 * x - y - 1;
+		} else if (-y > abs(x)) {
+			return -5 * y - x - 1;
+		} else { //if (-x>abs(y)) {
+			return -7 * x + y - 1;
+		}
+	}
+}
+
+//the value in ring index 0 for ring R
+function Imin(R) {
+	return pow(2 * R - 1, 2) + 1
+}
+
+//the value in the cell in ring R in ring index I
+function V(R, I) {
+	return Imin(R) + I;
+}
+
+</script>
+
+</head>
+<body>
+</body>
+</html>
